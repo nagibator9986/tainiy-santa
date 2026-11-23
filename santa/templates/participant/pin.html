@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_head.html" import compact_head %}
+{% from "_bits.html" import postmark with context %}
+{% block title %}Конверт для {{ p.name }} — Тайный Санта{% endblock %}
+{% block body_class %}page-gate{% endblock %}
+
+{% block header %}{{ compact_head('С возвращением,', p.name ~ '!', ev.event_name) }}{% endblock %}
+
+{% block content %}
+<section class="wrap section section--gate">
+  <article class="paper gate-card tape">
+    {{ postmark(cls='gate-postmark') }}
+    <p class="label">Личный конверт</p>
+    <h2 class="gate-title">Введи свой PIN</h2>
+    {% if locked %}
+      <p class="notice">Слишком много неверных попыток — вход ненадолго закрыт. Попробуй через несколько минут.</p>
+    {% else %}
+      <p>Тот самый, что ты придумал(а) при первом входе.</p>
+      <form method="post" action="{{ url_for('public.login', token=p.token) }}" class="gate-form gate-form--one">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="field">
+          <span>PIN</span>
+          <input class="pin-input" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" autocomplete="current-password" required autofocus>
+        </label>
+        <button class="btn">Открыть конверт</button>
+      </form>
+    {% endif %}
+    <p class="small muted">Забыл(а) PIN? Попроси организатора сбросить его — потом придумаешь новый.<br>Это не твой конверт? Просто закрой страницу.</p>
+  </article>
+</section>
+{% endblock %}

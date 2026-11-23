@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% from "_head.html" import compact_head %}
+{% from "_bits.html" import snowflake with context %}
+{% block title %}Книга почтмейстера — Тайный Санта{% endblock %}
+{% block body_class %}page-admin{% endblock %}
+
+{% block header %}{{ compact_head('Книга', 'почтмейстера', ev.event_name, url_for('admin.logout')) }}{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <ul class="tally" aria-label="Сводка">
+    <li><b>{{ stats.total }}</b><span>в книге</span></li>
+    <li><b>{{ stats.claimed }}</b><span>придумали PIN</span></li>
+    <li><b>{{ stats.letters }}</b><span>написали письмо</span></li>
+    <li class="{{ '' if drawn else 'is-dim' }}"><b>{{ stats.opened }}</b><span>вскрыли конверт</span></li>
+    <li class="{{ '' if drawn else 'is-dim' }}"><b>{{ stats.gifts }}</b><span>подарок готов</span></li>
+  </ul>
+</div>
+
+<div class="wrap admin-grid">
+  {# ------------------------------------------------ участники #}
+  <section class="paper ledger-card" id="people">
+    <header class="card-head">
+      <div>
+        <p class="label">Участники</p>
+        <h2>Кто в игре</h2>
+      </div>
+      {% if rows %}
+      <button type="button" class="btn btn--ghost btn--small" data-copy="{{ links_text }}" data-copied="Все ссылки скопированы">Скопировать все ссылки</button>
+      {% endif %}
+    </header>
+
+    {% if not drawn %}
+    <form class="add-form" method="post" action="{{ url_for('admin.add_participants') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label class="field">
+        <span>Имена — по одному в строке или через запятую</span>
+        <textarea class="input" name="names" rows="3" required placeholder="Аня Петрова&#10;Борис&#10;Вика из бухгалтерии"></textarea>
+      </label>
+      <div class="add-row">
+        <label class="field">
+          <span>Группа — необязательно</span>
+          <input class="input" name="group" list="groups" maxlength="40" placeholder="Например, «семья Ивановых»">
+        </label>
+        <button class="btn">Записать в книгу</button>
+      </div>
+      <p class="small muted">Люди из одной группы (пара, семья, соседи по кабинету) не вытянут друг друга.</p>
+    </form>
+    {% else %}
+    <p class="locked-note">{{ snowflake('locked-icon') }} Конверты запечатаны — список закрыт. Имя поправить и PIN сбросить можно.</p>
+    {% endif %}
+    <datalist id="groups">{% for g in groups %}<option value="{{ g }}">{% endfor %}</datalist>
+
+    {% if rows %}
+    <table class="ledger">
+      <thead>
+        <tr><th class="ledger-n">№</th><th>Имя</th><th>Личная ссылка</th><th>Отметки</th><th><span class="visually-hidden">Действия</span></th></tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td class="ledger-n">{{ loop.index }}</td>
+          <td class="ledger-name">
+            <span class="hand">{{ r.p.name }}</span>
+            {% if r.p.grp %}<span class="group-tag">{{ r.p.grp }}</span>{% endif %}
+          </td>
+          <td class="ledger-link">
+            <button type="button" class="copy-link" data-copy="{{ r.link }}" title="{{ r.link }}">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              <span>Копировать</span>
+            </button>
+          </td>
+          <td class="ledger-marks">
+            <span class="ink-stamp{{ ' is-on' if r.claimed }}" title="{{ 'PIN придуман' if r.claimed else 'Ещё не заходил(а) по ссылке' }}">PIN</span>
+            <span class="ink-stamp{{ ' is-on' if r.letter }}" title="{{ 'Письмо написано' if r.letter else 'Письма пока нет' }}">Письмо</span>
+            {% if drawn %}
+            <span class="ink-stamp{{ ' is-on' if r.opened }}" title="{{ 'Конверт вскрыт' if r.opened else 'Конверт ещё запечатан' }}">Вскрыт</span>
+            <span class="ink-stamp ink-stamp--gold{{ ' is-on' if r.gift }}" title="{{ 'Подарок готов' if r.gift else 'Подарок ещё не готов' }}">Подарок</span>
+            {% endif %}
+          </td>
+          <td class="ledger-actions">
+            <details class="row-menu">
+              <summary aria-label="Действия с участником {{ r.p.name }}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></summary>
+              <div class="row-menu-panel">
+                <form method="post" action="{{ url_for('admin.edit_participant', pid=r.p.id) }}" class="row-edit">
+                  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                  <label class="field"><span>Имя</span><input class="input" name="name" value="{{ r.p.name }}" maxlength="60" required></label>
+                  {% if not drawn %}
+                  <label class="field"><span>Группа</span><input class="input" name="group" value="{{ r.p.grp }}" list="groups" maxlength="40"></label>
+                  {% endif %}
+                  <button class="btn btn--small btn--green">Сохранить</button>
+                </form>
+                <div class="row-menu-actions">
+                  {% if r.claimed %}
+                  <form method="post" action="{{ url_for('admin.reset_pin', pid=r.p.id) }}" data-confirm="Сбросить PIN для «{{ r.p.name }}»? При следующем входе по ссылке придётся придумать новый, и участник увидит отметку о сбросе.">
+                    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                    <button class="btn btn--ghost btn--small">Сбросить PIN</button>
+                  </form>
+                  {% endif %}
+                  {% if not drawn %}
+                  <form method="post" action="{{ url_for('admin.delete_participant', pid=r.p.id) }}" data-confirm="Вычеркнуть «{{ r.p.name }}» из книги?">
+                    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+                    <button class="btn btn--ghost btn--small btn--danger">Удалить</button>
+                  </form>
+                  {% endif %}
+                </div>
+              </div>
+            </details>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="small muted ledger-foot">Ссылка личная: отправьте каждому его собственную — в мессенджер или почтой.</p>
+    {% else %}
+    <p class="empty-ledger hand">Книга пока пуста. Впишите первых участников — для жеребьёвки нужно хотя бы трое.</p>
+    {% endif %}
+  </section>
+
+  <aside class="admin-side">
+    {# ------------------------------------------------ жеребьёвка #}
+    <section class="paper draw-card" id="draw">
+      <p class="label">Жеребьёвка</p>
+      {% if drawn %}
+        <h2>Конверты запечатаны</h2>
+        <div class="draw-done">
+          <span class="seal-static" aria-hidden="true">{{ snowflake('seal-mark') }}</span>
+          <div>
+            <p class="draw-meta">{{ meta.at|when }} · {{ meta.count }} {{ plural(meta.count, 'конверт', 'конверта', 'конвертов') }}</p>
+            {% if meta.cycles == 1 %}
+            <p>Одна общая цепочка на всех: никто не дарит «в ответ».</p>
+            {% else %}
+            <p>Цепочек: {{ meta.cycles }} — одна общая не сложилась из-за исключений.{% if meta.mutual %} Взаимных пар: {{ meta.mutual }}.{% endif %}</p>
+            {% endif %}
+          </div>
+        </div>
+        <p class="small">Кто кому дарит, здесь не показано, а в базе зашифровано. Это знает только сам даритель — в своём конверте.</p>
+        <details class="danger-zone">
+          <summary>Отменить жеребьёвку</summary>
+          <form method="post" action="{{ url_for('admin.cancel_draw') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <label class="check"><input type="checkbox" name="confirm" value="1" required> Понимаю: все пары и анонимная переписка исчезнут, а вскрытые конверты придётся вскрывать заново.</label>
+            <button class="btn btn--ghost btn--small btn--danger">Отменить жеребьёвку</button>
+          </form>
+        </details>
+      {% else %}
+        <h2>Запечатать конверты</h2>
+        <p>Алгоритм выстроит одну общую цепочку: <span class="hand chain">А → Б → В → … → А</span>. Так никто не дарит «в ответ», а пары, группы и исключения учитываются.</p>
+        {% if stats.total >= 3 %}
+        <form method="post" action="{{ url_for('admin.run_draw') }}" class="draw-form" data-draw>
+          <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+          <button class="seal-btn"><span>Запечатать<br>конверты</span></button>
+          <p class="small muted">После этого список закроется. Ссылки можно рассылать и до, и после жеребьёвки.</p>
+        </form>
+        {% else %}
+        <p class="locked-note">Нужно хотя бы три участника — сейчас {{ stats.total }}.</p>
+        {% endif %}
+      {% endif %}
+    </section>
+
+    {# ------------------------------------------------ исключения #}
+    <section class="paper" id="rules">
+      <p class="label">Исключения</p>
+      <h2>Не дарят друг другу</h2>
+      <p class="small">Пары, родственники, те, кто и так обменяется подарками. Для целой семьи удобнее общая группа.</p>
+      {% if not drawn and rows|length >= 2 %}
+      <form class="excl-form" method="post" action="{{ url_for('admin.add_exclusion') }}">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <select name="a" class="input" required aria-label="Первый участник">
+          <option value="">Кто…</option>
+          {% for r in rows %}<option value="{{ r.p.id }}">{{ r.p.name }}</option>{% endfor %}
+        </select>
+        <span class="excl-x" aria-hidden="true">⟷</span>
+        <select name="b" class="input" required aria-label="Второй участник">
+          <option value="">…и кто</option>
+          {% for r in rows %}<option value="{{ r.p.id }}">{{ r.p.name }}</option>{% endfor %}
+        </select>
+        <button class="btn btn--small btn--green">Добавить</button>
+      </form>
+      {% endif %}
+      {% if exclusions %}
+      <ul class="chips">
+        {% for e in exclusions %}
+        <li class="chip">
+          <span>{{ e.a_name }}</span><i aria-hidden="true">⟷</i><span>{{ e.b_name }}</span>
+          {% if not drawn %}
+          <form method="post" action="{{ url_for('admin.delete_exclusion') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="a" value="{{ e.a_id }}"><input type="hidden" name="b" value="{{ e.b_id }}">
+            <button aria-label="Убрать исключение">×</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if groups %}
+      <p class="small groups-line">Группы:
+        {% for g in groups %}<span class="group-tag">{{ g }} · {{ group_sizes[g] }}</span>{% endfor %}
+      </p>
+      {% endif %}
+      {% if not exclusions and not groups %}
+      <p class="small muted">Пока без исключений — дарить может кто угодно кому угодно.</p>
+      {% endif %}
+    </section>
+
+    {# ------------------------------------------------ настройки #}
+    <section class="paper" id="settings">
+      <p class="label">Праздник</p>
+      <h2>Настройки</h2>
+      <form method="post" action="{{ url_for('admin.save_settings') }}" class="settings-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="field"><span>Название</span><input class="input" name="event_name" value="{{ ev.event_name }}" maxlength="80"></label>
+        <label class="field"><span>Когда дарим</span><input class="input" type="datetime-local" name="exchange_at" value="{{ ev.exchange_at }}"></label>
+        <label class="field"><span>Бюджет</span><input class="input" name="budget" value="{{ ev.budget }}" maxlength="40" placeholder="до 10 000 ₸"></label>
+        <label class="field"><span>Где</span><input class="input" name="place" value="{{ ev.place }}" maxlength="120" placeholder="Офис, переговорная на 3 этаже"></label>
+        <label class="field"><span>Записка участникам</span><textarea class="input" name="note" rows="3" maxlength="600" placeholder="Подарки кладём под ёлку до 17:00. Подписывать не нужно!">{{ ev.note }}</textarea></label>
+        <button class="btn btn--green">Сохранить</button>
+      </form>
+    </section>
+  </aside>
+</div>
+
+<div class="draw-overlay" data-draw-overlay hidden>
+  <div class="draw-scene">
+    <div class="shuffle" aria-hidden="true">{% for i in range(5) %}<span class="mini-env" style="--i:{{ i }}"></span>{% endfor %}</div>
+    <p class="draw-text">Перемешиваем конверты…</p>
+    <p class="draw-sub">ищем одну цепочку на всех</p>
+  </div>
+</div>
+{% endblock %}

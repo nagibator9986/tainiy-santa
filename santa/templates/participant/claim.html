@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_head.html" import compact_head %}
+{% from "_bits.html" import postmark with context %}
+{% block title %}Конверт для {{ p.name }} — Тайный Санта{% endblock %}
+{% block body_class %}page-gate{% endblock %}
+
+{% block header %}{{ compact_head('Привет,', p.name ~ '!', ev.event_name) }}{% endblock %}
+
+{% block content %}
+<section class="wrap section section--gate">
+  <article class="paper gate-card tape">
+    {{ postmark(cls='gate-postmark') }}
+    <p class="label">Личный конверт · шаг 1 из 2</p>
+    <h2 class="gate-title">Придумай PIN</h2>
+    <p>От 4 до 6 цифр. С ним конверт откроешь только ты: ни организатор, ни случайный человек со ссылкой внутрь не попадут.</p>
+    {% if p.pin_resets %}
+    <p class="notice">Организатор сбрасывал PIN этого конверта {{ p.pin_resets }} {{ plural(p.pin_resets, 'раз', 'раза', 'раз') }} — придумай новый.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('public.claim', token=p.token) }}" class="gate-form">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label class="field">
+        <span>Новый PIN</span>
+        <input class="pin-input" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" autocomplete="new-password" required autofocus>
+      </label>
+      <label class="field">
+        <span>Ещё раз, для верности</span>
+        <input class="pin-input" name="pin2" type="password" inputmode="numeric" pattern="[0-9]{4,6}" minlength="4" maxlength="6" autocomplete="new-password" required>
+      </label>
+      <button class="btn">Запечатать PIN-кодом</button>
+    </form>
+    <p class="small muted">Запиши PIN где-нибудь. Если забудешь — организатор сбросит его, а здесь останется отметка о сбросе.</p>
+  </article>
+</section>
+{% endblock %}

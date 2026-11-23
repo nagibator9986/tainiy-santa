@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+instance/
+*.sqlite3
+*.sqlite3-*
+.pytest_cache/
+.DS_Store
+.env
+*.init-lock

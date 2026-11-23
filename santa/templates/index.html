@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "_scene.html" import sky %}
+{% from "_bits.html" import calendar, event_facts with context %}
+{% block body_class %}page-home{% endblock %}
+
+{% block header %}
+{% call sky() %}
+  <p class="hero-kicker">Почта Деда Мороза · {{ ev.year }}</p>
+  <h1 class="hero-title">
+    <span class="hero-title-hand">тайный</span>
+    <span class="hero-title-main">Санта</span>
+  </h1>
+  <p class="hero-lead">{{ ev.event_name }}</p>
+  <p class="hero-status">
+    {% if drawn %}
+      <span class="dot dot--on"></span>Конверты запечатаны {{ ev.draw_at|when }} — открывай свою ссылку
+    {% elif count %}
+      <span class="dot"></span>Жеребьёвка впереди · в книге {{ count }} {{ plural(count, 'имя', 'имени', 'имён') }}
+    {% else %}
+      <span class="dot"></span>Организатор собирает список участников
+    {% endif %}
+  </p>
+  <a class="hero-scroll" href="#how">Как всё устроено<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></a>
+{% endcall %}
+{% endblock %}
+
+{% block content %}
+<section class="wrap section section--event">
+  <article class="paper event-card tape tilt-l">
+    {{ calendar() }}
+    {{ event_facts(count) }}
+  </article>
+</section>
+
+<section class="wrap section" id="how">
+  <h2 class="section-title"><span class="hand">как всё</span> устроено</h2>
+  <ol class="stamps">
+    <li class="step">
+      <div class="stamp" style="--c:#a92d2a; --r:-3deg">
+        <div class="stamp-inner">
+          <span class="stamp-value">1</span>
+          <svg class="stamp-art" viewBox="0 0 80 80" aria-hidden="true"><circle cx="26" cy="40" r="12"/><circle cx="26" cy="40" r="4"/><path d="M38 40 H68 M60 40 V50 M51 40 V47"/></svg>
+          <span class="stamp-caption">Ссылка</span>
+        </div>
+      </div>
+      <h3>Открой свою ссылку</h3>
+      <p>Организатор пришлёт личный адрес. Придумай PIN — и в твой конверт не заглянет никто, даже организатор.</p>
+    </li>
+    <li class="step">
+      <div class="stamp" style="--c:#2c5a44; --r:2deg">
+        <div class="stamp-inner">
+          <span class="stamp-value">2</span>
+          <svg class="stamp-art" viewBox="0 0 80 80" aria-hidden="true"><rect x="16" y="12" width="40" height="54" rx="2"/><path d="M23 25 H48 M23 33 H48 M23 41 H42 M23 49 H36"/><path d="M55 58 L69 21 L74 23 L60 60 Z M55 58 L54 65 L60 60"/></svg>
+          <span class="stamp-caption">Письмо</span>
+        </div>
+      </div>
+      <h3>Напиши письмо</h3>
+      <p>О чём мечтаешь, что тебе точно не дарить, размер, любимый цвет. Его прочитает только твой Санта.</p>
+    </li>
+    <li class="step">
+      <div class="stamp stamp--cancelled" style="--c:#284a86; --r:-1.5deg">
+        <div class="stamp-inner">
+          <span class="stamp-value">3</span>
+          <svg class="stamp-art" viewBox="0 0 80 80" aria-hidden="true"><rect x="10" y="22" width="60" height="40" rx="2"/><path d="M10 22 L40 45 L70 22"/><circle class="fill" cx="40" cy="45" r="7"/></svg>
+          <span class="stamp-caption">Конверт</span>
+        </div>
+      </div>
+      <h3>Вскрой конверт</h3>
+      <p>После жеребьёвки внутри появится имя того, кого ты радуешь. Цепочка одна на всех — никто не дарит «в ответ».</p>
+    </li>
+    <li class="step">
+      <div class="stamp" style="--c:#b07a1f; --r:2.5deg">
+        <div class="stamp-inner">
+          <span class="stamp-value">4</span>
+          <svg class="stamp-art" viewBox="0 0 80 80" aria-hidden="true"><rect x="16" y="36" width="48" height="30"/><rect x="12" y="27" width="56" height="10"/><path d="M40 27 V66"/><path d="M40 27 C 33 15 21 17 26 24 C 29 28 36 27 40 27 C 44 27 51 28 54 24 C 59 17 47 15 40 27 Z"/></svg>
+          <span class="stamp-caption">Тайна</span>
+        </div>
+      </div>
+      <h3>Спроси тайком</h3>
+      <p>Сомневаешься в размере? Отправь подопечному анонимную телеграмму — ответ придёт, а твоё имя останется тайной.</p>
+    </li>
+  </ol>
+</section>
+
+<section class="wrap section section--narrow">
+  <aside class="paper paper--note tilt-r">
+    <p class="label">Где взять ссылку</p>
+    <p class="hand hand--lg">Ссылку присылает организатор — лично каждому. Потерялась? Напиши организатору — пришлёт заново. Сайт без регистрации и паролей: только ссылка и твой PIN.</p>
+  </aside>
+</section>
+{% endblock %}

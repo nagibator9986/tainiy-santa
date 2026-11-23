@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_head.html" import compact_head %}
+{% block title %}Форма устарела — Тайный Санта{% endblock %}
+{% block body_class %}page-gate{% endblock %}
+
+{% block header %}{{ compact_head('Форма', 'устарела') }}{% endblock %}
+
+{% block content %}
+<section class="wrap section section--gate">
+  <article class="paper gate-card tape">
+    <p class="label">Почта не приняла отправление</p>
+    <h2 class="gate-title">Страница пролежала слишком долго</h2>
+    <p>Вернись назад, обнови страницу и отправь ещё раз. Так бывает, если вкладка была открыта очень давно или cookies отключены.</p>
+    <p><a class="btn btn--ghost" href="javascript:history.back()">Назад</a> <a class="btn btn--ghost" href="{{ url_for('public.index') }}">На главную</a></p>
+  </article>
+</section>
+{% endblock %}

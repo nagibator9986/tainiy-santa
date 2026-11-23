@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "_head.html" import compact_head %}
+{% from "_bits.html" import calendar, event_facts, postmark, snowflake with context %}
+{% block title %}{{ p.name }} — Тайный Санта{% endblock %}
+{% block body_class %}page-me{% endblock %}
+
+{% block header %}{{ compact_head('Привет,', p.name ~ '!', ev.event_name, url_for('public.logout', token=p.token), 'Закрыть конверт') }}{% endblock %}
+
+{% macro thread(items, mine_label, them_label) %}
+<ol class="thread">
+  {% for m in items %}
+  {% set mine = (m.from_santa and mine_label == 'santa') or (not m.from_santa and mine_label == 'giftee') %}
+  <li class="tg {{ 'tg--mine' if mine else 'tg--them' }}{{ ' is-new' if m.new }}">
+    <span class="tg-head"><span>{{ 'Ты пишешь' if mine else them_label }}</span><time>{{ m.at|when }}</time></span>
+    <p class="tg-body"><span>{{ m.text }}</span></p>
+  </li>
+  {% endfor %}
+</ol>
+{% endmacro %}
+
+{% block content %}
+<section class="wrap section section--strip">
+  <article class="paper event-card event-card--slim">
+    {{ calendar() }}
+    {{ event_facts() }}
+  </article>
+</section>
+
+<div class="wrap me-grid">
+  {# ------------------------------------------------ конверт #}
+  <section class="me-col" id="envelope">
+    <h2 class="col-title"><span class="hand">твой</span> конверт</h2>
+
+    {% if not drawn %}
+      <div class="envelope-stage">
+        <div class="envelope is-waiting">
+          <div class="env-back"></div>
+          <div class="env-pocket">
+            <span class="env-to">Лично в руки:<span class="hand">{{ p.name }}</span></span>
+            {{ postmark(cls='env-postmark') }}
+          </div>
+          <div class="env-flap"></div>
+          <div class="env-seal env-seal--empty"><span>скоро</span></div>
+        </div>
+      </div>
+      <p class="env-hint">Жеребьёвку ещё не провели. Как только организатор запечатает конверты, здесь появится сургучная печать. А пока напиши своё письмо Деду Морозу — оно пригодится твоему Санте.</p>
+
+    {% elif broken %}
+      <article class="paper">
+        <p class="label">Конверт повреждён</p>
+        <p>Не получается прочитать, кому ты даришь. Так бывает, если на сервере сменили секретный ключ. Попроси организатора провести жеребьёвку заново.</p>
+      </article>
+
+    {% elif not giftee %}
+      <article class="paper">
+        <p class="label">Конверта нет</p>
+        <p>Похоже, тебя добавили уже после жеребьёвки. Попроси организатора провести её заново — тогда конверт появится.</p>
+      </article>
+
+    {% else %}
+      <div class="envelope-stage">
+        <div class="envelope{{ ' is-open' if p.opened_at }}"
+             {% if not p.opened_at %}data-open-url="{{ url_for('public.open_envelope', token=p.token) }}" role="button" tabindex="0" aria-label="Вскрыть конверт"{% endif %}>
+          <div class="env-back"></div>
+          <div class="env-letter">
+            <span class="env-letter-kicker">Ты — Тайный Санта для</span>
+            <strong class="env-letter-name">{{ giftee.name }}</strong>
+            <span class="env-letter-foot">тсс… это секрет</span>
+          </div>
+          <div class="env-pocket">
+            <span class="env-to">Лично в руки:<span class="hand">{{ p.name }}</span></span>
+            {{ postmark(cls='env-postmark') }}
+          </div>
+          <div class="env-flap"></div>
+          <div class="env-seal" aria-hidden="true">
+            <span class="seal-half seal-l">{{ snowflake('seal-mark') }}</span>
+            <span class="seal-half seal-r">{{ snowflake('seal-mark') }}</span>
+          </div>
+          <div class="env-sparks" aria-hidden="true"></div>
+        </div>
+      </div>
+      {% if p.opened_at %}
+        <p class="env-opened">Конверт вскрыт {{ p.opened_at|when }}</p>
+      {% else %}
+        <p class="env-hint" data-sealed-hint>Нажми на сургучную печать — и узнаешь, кому готовить подарок. Сначала проверь, что никто не смотрит в экран.</p>
+      {% endif %}
+
+      <div class="giftee" id="giftee"{% if not p.opened_at %} hidden{% endif %}>
+        <article class="paper letter letter--read">
+          <p class="label">Письмо Деду Морозу</p>
+          <h3 class="letter-from">Пишет <span class="hand">{{ giftee.name }}</span></h3>
+          {% if giftee_letter %}
+            {% if giftee.wishes %}
+            <div class="letter-block"><h4>Мои хотелки</h4><p class="ink">{{ giftee.wishes|linkify }}</p></div>
+            {% endif %}
+            {% if giftee.dislikes %}
+            <div class="letter-block letter-block--no"><h4>Пожалуйста, не дарите</h4><p class="ink">{{ giftee.dislikes|linkify }}</p></div>
+            {% endif %}
+            {% if giftee.about %}
+            <div class="letter-block"><h4>Полезно знать</h4><p class="ink">{{ giftee.about|linkify }}</p></div>
+            {% endif %}
+            <p class="letter-date">Последняя правка — {{ giftee.letter_at|when }}</p>
+          {% else %}
+            <p class="ink ink--empty">Письмо пока пустое. Загляни позже — или спроси анонимно, о чём мечтает {{ giftee.name }}.</p>
+          {% endif %}
+
+          <form method="post" action="{{ url_for('public.gift', token=p.token) }}" class="gift-form">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="ready" value="{{ 0 if gift_ready else 1 }}">
+            <button class="gift-toggle{{ ' is-on' if gift_ready }}" aria-pressed="{{ 'true' if gift_ready else 'false' }}">
+              <span class="gift-box" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span>
+              <span>{{ 'Подарок готов и ждёт праздника' if gift_ready else 'Отметить: подарок готов' }}</span>
+            </button>
+          </form>
+        </article>
+
+        <article class="paper telegraph" id="questions">
+          <p class="label">Анонимный телеграф</p>
+          <h3>Тайный вопрос <span class="hand">→ {{ giftee.name }}</span></h3>
+          <p class="small">Размер, любимый цвет, есть ли уже такая книга — что угодно. Телеграмма придёт от «Тайного Санты», без имени.</p>
+          {% if to_giftee %}{{ thread(to_giftee, 'santa', 'Отвечает ' ~ giftee.name) }}{% endif %}
+          <form method="post" action="{{ url_for('public.ask', token=p.token) }}" class="tg-form">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <textarea name="text" rows="2" maxlength="600" required placeholder="Какой у тебя размер варежек?"></textarea>
+            <button class="btn btn--small">Отправить телеграмму</button>
+          </form>
+        </article>
+      </div>
+    {% endif %}
+  </section>
+
+  {# ------------------------------------------------ своё письмо #}
+  <section class="me-col">
+    <article class="paper letter" id="letter">
+      <p class="label">Твоё письмо</p>
+      <h2 class="letter-title hand">Дорогой Дедушка Мороз,</h2>
+      <p class="small">Его прочитает только твой Тайный Санта. Дописывать можно до самого праздника — Санта всегда видит последнюю версию.</p>
+      <form method="post" action="{{ url_for('public.letter', token=p.token) }}" data-dirty-guard>
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label class="letter-field">
+          <span class="letter-label">Мои хотелки</span>
+          <textarea class="lined" name="wishes" maxlength="1500" rows="4" placeholder="Книга про северное сияние, тёплые носки с оленями, вот этот набор чая: https://…">{{ p.wishes }}</textarea>
+        </label>
+        <label class="letter-field letter-field--no">
+          <span class="letter-label">Пожалуйста, не дарите</span>
+          <textarea class="lined" name="dislikes" maxlength="1500" rows="3" placeholder="Свечи с ванилью, статуэтки, сладкое — я без сахара">{{ p.dislikes }}</textarea>
+        </label>
+        <label class="letter-field">
+          <span class="letter-label">Полезно знать <small>размеры, цвета, аллергии, увлечения</small></span>
+          <textarea class="lined" name="about" maxlength="1500" rows="3" placeholder="Размер M, люблю зелёный и горчичный, аллергия на цитрусовые, собираю магниты из поездок">{{ p.about }}</textarea>
+        </label>
+        <div class="letter-actions">
+          <button class="btn">Отправить письмо</button>
+          <span class="letter-saved" data-dirty-label data-dirty-text="Есть неотправленные правки">
+            {% if p.letter_at %}Отправлено {{ p.letter_at|when }}{% else %}Ещё не отправлено{% endif %}
+          </span>
+        </div>
+      </form>
+    </article>
+
+    {% if drawn and has_santa %}
+    <article class="paper telegraph" id="santa">
+      <p class="label">Анонимный телеграф</p>
+      <h3>Твой Тайный Санта{% if new_from_santa %} <span class="badge">{{ new_from_santa }} {{ plural(new_from_santa, 'новая', 'новые', 'новых') }}</span>{% endif %}</h3>
+      {% if from_santa %}
+        {{ thread(from_santa, 'giftee', 'Тайный Санта') }}
+      {% else %}
+        <p class="small">Пока тишина. Если у Санты появится вопрос, он придёт сюда телеграммой. А можешь написать первым — например, подсказку.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('public.reply', token=p.token) }}" class="tg-form">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <textarea name="text" rows="2" maxlength="600" required placeholder="{{ 'Ответить Санте…' if from_santa else 'Подсказка для Санты…' }}"></textarea>
+        <button class="btn btn--small btn--green">{{ 'Ответить' if from_santa else 'Отправить' }}</button>
+      </form>
+    </article>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

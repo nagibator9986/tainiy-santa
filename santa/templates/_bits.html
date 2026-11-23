@@ -1,0 +1,46 @@
+{# Мелкие повторяющиеся детали: календарный листок, почтовый штемпель, печать. #}
+
+{% macro calendar() %}
+<div class="cal" aria-hidden="true">
+  <span class="cal-rings"><i></i><i></i></span>
+  <span class="cal-month">{{ ev.ex_month or '—' }}</span>
+  <span class="cal-day">{{ ev.ex_day or '?' }}</span>
+  <span class="cal-week">{{ ev.ex_weekday or '' }}</span>
+</div>
+{% endmacro %}
+
+{% macro event_facts(count=None) %}
+<div class="event-body">
+  <p class="label">Вручение подарков</p>
+  {% if ev.ex_day %}
+  <h2 class="event-when">{{ ev.ex_day }} {{ ev.ex_month_gen }}, {{ ev.ex_weekday }}, {{ ev.ex_time }}</h2>
+  <p class="countdown" data-countdown="{{ ev.exchange_ms }}" data-done="Праздник наступил — дарите!">
+    {% if ev.ex_past %}Праздник наступил — дарите!{% else %}&nbsp;{% endif %}
+  </p>
+  {% else %}
+  <h2 class="event-when">Дату скоро объявят</h2>
+  {% endif %}
+  <dl class="facts">
+    {% if ev.budget %}<div><dt>Бюджет</dt><dd>{{ ev.budget }}</dd></div>{% endif %}
+    {% if ev.place %}<div><dt>Где</dt><dd>{{ ev.place }}</dd></div>{% endif %}
+    {% if count is not none %}<div><dt>В игре</dt><dd>{{ count }} {{ plural(count, 'человек', 'человека', 'человек') }}</dd></div>{% endif %}
+  </dl>
+  {% if ev.note %}<p class="organizer-note"><span class="label">От организатора</span><span class="hand">{{ ev.note|linkify }}</span></p>{% endif %}
+</div>
+{% endmacro %}
+
+{% macro postmark(text='ПОЧТА ДЕДА МОРОЗА', cls='') %}
+{% set ring = 'pm-' ~ (cls.split(' ')[0] if cls else 'x') %}
+<svg class="postmark {{ cls }}" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+  <defs><path id="{{ ring }}" d="M60 60 m-41 0 a41 41 0 1 1 82 0 a41 41 0 1 1 -82 0"/></defs>
+  <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" stroke-width="2.4"/>
+  <circle cx="60" cy="60" r="30" fill="none" stroke="currentColor" stroke-width="1.6"/>
+  <text font-size="11" fill="currentColor"><textPath href="#{{ ring }}" textLength="250" lengthAdjust="spacing">{{ text }} ✶ {{ ev.year }} ✶</textPath></text>
+  <text x="60" y="57" text-anchor="middle" font-size="13" fill="currentColor">{{ ev.ex_day or '' }}</text>
+  <text x="60" y="72" text-anchor="middle" font-size="9" letter-spacing="1.5" fill="currentColor">{{ (ev.ex_month_gen or '')|upper }}</text>
+</svg>
+{% endmacro %}
+
+{% macro snowflake(cls='') %}
+<svg class="{{ cls }}" viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M20 3v34M5.3 11.5l29.4 17M5.3 28.5l29.4-17M15 5.5l5 4 5-4M15 34.5l5-4 5 4M4 16.6l6-2.2-1-6.2M36 23.4l-6 2.2 1 6.2M4 23.4l6 2.2-1 6.2M36 16.6l-6-2.2 1-6.2"/></svg>
+{% endmacro %}
