@@ -72,18 +72,34 @@ def thread_size(giver_id: int) -> int:
     return db.query("SELECT COUNT(*) AS c FROM messages WHERE giver_id = ?", (giver_id,), one=True)["c"]
 
 
+def groups_of(rows) -> dict:
+    """{ключ группы: (название как вписано, [id участников])}. Регистр не важен."""
+    groups: dict[str, tuple[str, list[int]]] = {}
+    for p in rows:
+        label = (p["grp"] or "").strip()
+        if label:
+            groups.setdefault(label.casefold(), (label, []))[1].append(p["id"])
+    return groups
+
+
+def oversized_groups(rows) -> list[tuple[str, int]]:
+    """Группы, из-за которых жеребьёвка невозможна в принципе.
+
+    Каждому из g человек группы нужен получатель вне группы, а снаружи
+    всего n − g человек. Значит, при g > n − g распределить нельзя.
+    """
+    n = len(rows)
+    return [(label, len(ids)) for label, ids in groups_of(rows).values()
+            if len(ids) >= 2 and len(ids) * 2 > n]
+
+
 def forbidden_pairs(rows) -> set:
     """Исключения и группы → направленные запрещённые пары."""
     forbidden = set()
     for e in db.query("SELECT a_id, b_id FROM exclusions"):
         forbidden.add((e["a_id"], e["b_id"]))
         forbidden.add((e["b_id"], e["a_id"]))
-    groups: dict[str, list[int]] = {}
-    for p in rows:
-        key = (p["grp"] or "").strip().casefold()
-        if key:
-            groups.setdefault(key, []).append(p["id"])
-    for members in groups.values():
+    for _label, members in groups_of(rows).values():
         for a in members:
             for b in members:
                 if a != b:

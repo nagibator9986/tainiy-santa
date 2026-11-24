@@ -1201,6 +1201,20 @@ select.input {
 .chip button { padding: 0 7px; border: 0; font-size: 1.15rem; line-height: 1; color: var(--ink-3); background: none; cursor: pointer; }
 .chip button:hover { color: var(--red); }
 .settings-form .btn { margin-top: 4px; }
+.groups-line { margin-top: 16px; }
+.groups-line .small { margin: 0 0 4px; }
+.groups-line .chips { margin-top: 6px; }
+.chip--group span:first-child { font-weight: 600; color: var(--green); }
+.alert {
+  margin-top: 18px;
+  padding: 14px 16px 16px;
+  border-left: 3px solid var(--red);
+  border-radius: 0 4px 4px 0;
+  background: rgba(179, 48, 44, .08);
+}
+.alert p { margin: 0 0 .6em !important; }
+.alert-title { font: .72rem var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--red); }
+.alert .btn { margin-top: 4px; }
 
 .draw-overlay {
   position: fixed;

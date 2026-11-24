@@ -174,11 +174,39 @@ def test_pin_protects_envelope(app):
     assert "сбрасывал PIN этого конверта 1 раз" in html
 
 
-def test_impossible_exclusions_message(app):
+def test_everyone_in_one_group_is_explained_and_fixable(app):
+    """Частая ошибка: в «пару/семью» вписали название компании всем сразу."""
     a = admin(app)
-    post(a, "/admin/participants", {"names": "Аня, Борис, Вика", "group": "Семья"})
+    r = post(a, "/admin/participants", {"names": "Аня, Борис, Вика, Глеб", "group": "Rayband"}, follow_redirects=True)
+    assert "уже 4 из 4" in r.get_data(as_text=True)
+    dash = a.get("/admin/").get_data(as_text=True)
+    assert "Так не сложится" in dash and "Снять пометку «Rayband»" in dash
+    assert 'class="seal-btn"' not in dash
+
     r = post(a, "/admin/draw", follow_redirects=True)
-    assert "нет ни одного возможного получателя" in r.get_data(as_text=True)
+    assert "дарить им некому" in r.get_data(as_text=True)
+    assert sqlite3.connect(app.config["DATABASE"]).execute("SELECT COUNT(*) FROM assignments").fetchone()[0] == 0
+
+    post(a, "/admin/groups/dissolve", {"group": "rayband"})
+    dash = a.get("/admin/").get_data(as_text=True)
+    assert "Так не сложится" not in dash and 'class="seal-btn"' in dash
+    post(a, "/admin/draw")
+    assert sqlite3.connect(app.config["DATABASE"]).execute("SELECT COUNT(*) FROM assignments").fetchone()[0] == 4
+
+
+def test_family_of_two_is_fine_but_stuck_person_is_named(app):
+    a = admin(app)
+    post(a, "/admin/participants", {"names": "Аня, Борис", "group": "Ивановы"})
+    post(a, "/admin/participants", {"names": "Вика, Глеб"})
+    assert "Так не сложится" not in a.get("/admin/").get_data(as_text=True)
+    con = sqlite3.connect(app.config["DATABASE"])
+    pid = dict(con.execute("SELECT name, id FROM participants").fetchall())
+    con.close()
+    # Вика исключена со всеми — ей некому дарить
+    for other in ("Аня", "Борис", "Глеб"):
+        post(a, "/admin/exclusions", {"a": pid["Вика"], "b": pid[other]})
+    r = post(a, "/admin/draw", follow_redirects=True)
+    assert "Участнику «Вика» некому дарить" in r.get_data(as_text=True)
 
 
 def test_setup_flow_without_env_password(tmp_path):

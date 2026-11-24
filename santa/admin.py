@@ -157,11 +157,9 @@ def dashboard():
         "JOIN participants a ON a.id = e.a_id JOIN participants b ON b.id = e.b_id"
     )
     exclusions = sorted(exclusions, key=lambda e: (e["a_name"].casefold(), e["b_name"].casefold()))
-    groups = sorted({p["grp"] for p in people if p["grp"]}, key=str.casefold)
-    group_sizes = {}
-    for p in people:
-        if p["grp"]:
-            group_sizes[p["grp"]] = group_sizes.get(p["grp"], 0) + 1
+    grouped = sorted(models.groups_of(people).values(), key=lambda g: g[0].casefold())
+    groups = [label for label, _ids in grouped]
+    group_sizes = {label: len(ids) for label, ids in grouped}
     links_text = "\n".join(f"{r['p']['name']} — {r['link']}" for r in rows)
     meta = {
         "at": db.setting("draw_at"),
@@ -173,6 +171,7 @@ def dashboard():
         "admin/dashboard.html",
         rows=rows, stats=stats, drawn=drawn, exclusions=exclusions,
         groups=groups, group_sizes=group_sizes, links_text=links_text, meta=meta,
+        bad_groups=models.oversized_groups(people),
     )
 
 
@@ -210,6 +209,10 @@ def add_participants():
         flash(f"В книгу записано: {len(added)} {word}. Скопируйте ссылки и разошлите их.", "ok")
     if skipped:
         flash("Уже есть в списке: " + ", ".join(skipped) + ".", "info")
+    for label, size in models.oversized_groups(models.people()):
+        flash(f"В «{label}» уже {size} из {len(existing)} человек. Люди с одинаковой пометкой "
+              "не дарят друг другу — с такой пометкой жеребьёвка не сложится. "
+              "Пометка нужна только для пар и семей.", "info")
     if not added and not skipped:
         flash("Впишите хотя бы одно имя.", "error")
     return _back("people")
@@ -302,6 +305,23 @@ def delete_exclusion():
     return _back("rules")
 
 
+@bp.post("/groups/dissolve")
+@admin_required
+def dissolve_group():
+    if models.is_drawn():
+        flash("После жеребьёвки пометки не меняются — сначала отмените её.", "error")
+        return _back("rules")
+    key = clean_line(request.form.get("group"), 40).casefold()
+    label, ids = models.groups_of(models.people()).get(key, ("", []))
+    for pid in ids:
+        db.execute("UPDATE participants SET grp = '' WHERE id = ?", (pid,))
+    db.commit()
+    if ids:
+        flash(f"Пометка «{label}» снята у {len(ids)} "
+              f"{plural(len(ids), 'человека', 'человек', 'человек')}. Можно запечатывать конверты.", "ok")
+    return _back("draw")
+
+
 # ---------------------------------------------------------------- настройки
 
 @bp.post("/settings")
@@ -335,6 +355,11 @@ DRAW_KEYS = ("draw_at", "draw_count", "draw_cycles", "draw_mutual")
 def run_draw():
     people = models.people()
     names = {p["id"]: p["name"] for p in people}
+    for label, size in models.oversized_groups(people):
+        flash(f"В «{label}» {size} из {len(people)} человек, а люди с одинаковой пометкой "
+              "не дарят друг другу — дарить им некому. Уберите пометку кнопкой в блоке «Жеребьёвка».",
+              "error")
+        return _back("draw")
     try:
         result = draw(list(names), models.forbidden_pairs(people))
     except DrawError as err:

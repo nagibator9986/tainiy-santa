@@ -39,12 +39,12 @@
       </label>
       <div class="add-row">
         <label class="field">
-          <span>Группа — необязательно</span>
-          <input class="input" name="group" list="groups" maxlength="40" placeholder="Например, «семья Ивановых»">
+          <span>Пара или семья — необязательно</span>
+          <input class="input" name="group" list="groups" maxlength="40" placeholder="Например: Ивановы">
         </label>
         <button class="btn">Записать в книгу</button>
       </div>
-      <p class="small muted">Люди из одной группы (пара, семья, соседи по кабинету) не вытянут друг друга.</p>
+      <p class="small muted">Впишите одно и то же слово тем, кто не должен дарить друг другу, — мужу и жене, родным. Название компании или команды сюда не нужно: обычно поле оставляют пустым.</p>
     </form>
     {% else %}
     <p class="locked-note">{{ snowflake('locked-icon') }} Конверты запечатаны — список закрыт. Имя поправить и PIN сбросить можно.</p>
@@ -86,7 +86,7 @@
                   <input type="hidden" name="csrf" value="{{ csrf_token() }}">
                   <label class="field"><span>Имя</span><input class="input" name="name" value="{{ r.p.name }}" maxlength="60" required></label>
                   {% if not drawn %}
-                  <label class="field"><span>Группа</span><input class="input" name="group" value="{{ r.p.grp }}" list="groups" maxlength="40"></label>
+                  <label class="field"><span>Пара или семья</span><input class="input" name="group" value="{{ r.p.grp }}" list="groups" maxlength="40"></label>
                   {% endif %}
                   <button class="btn btn--small btn--green">Сохранить</button>
                 </form>
@@ -145,8 +145,21 @@
         </details>
       {% else %}
         <h2>Запечатать конверты</h2>
-        <p>Алгоритм выстроит одну общую цепочку: <span class="hand chain">А → Б → В → … → А</span>. Так никто не дарит «в ответ», а пары, группы и исключения учитываются.</p>
-        {% if stats.total >= 3 %}
+        <p>Алгоритм выстроит одну общую цепочку: <span class="hand chain">А → Б → В → … → А</span>. Так никто не дарит «в ответ», а пары, семьи и исключения учитываются.</p>
+        {% if bad_groups %}
+        {% for label, size in bad_groups %}
+        <div class="alert">
+          <p class="alert-title">Так не сложится</p>
+          <p>У {{ size }} из {{ stats.total }} человек одна и та же пометка «{{ label }}». Люди с одинаковой пометкой не дарят друг другу, поэтому им просто некому дарить.</p>
+          <p class="small">Пометка нужна только для пар и семей. Если «{{ label }}» — название вашей компании или команды, просто снимите её.</p>
+          <form method="post" action="{{ url_for('admin.dissolve_group') }}">
+            <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="group" value="{{ label }}">
+            <button class="btn btn--small">Снять пометку «{{ label }}»</button>
+          </form>
+        </div>
+        {% endfor %}
+        {% elif stats.total >= 3 %}
         <form method="post" action="{{ url_for('admin.run_draw') }}" class="draw-form" data-draw>
           <input type="hidden" name="csrf" value="{{ csrf_token() }}">
           <button class="seal-btn"><span>Запечатать<br>конверты</span></button>
@@ -195,9 +208,23 @@
       </ul>
       {% endif %}
       {% if groups %}
-      <p class="small groups-line">Группы:
-        {% for g in groups %}<span class="group-tag">{{ g }} · {{ group_sizes[g] }}</span>{% endfor %}
-      </p>
+      <div class="groups-line">
+        <p class="small">Пары и семьи — внутри не дарят:</p>
+        <ul class="chips">
+          {% for g in groups %}
+          <li class="chip chip--group">
+            <span>{{ g }}</span><i aria-hidden="true">·</i><span>{{ group_sizes[g] }} {{ plural(group_sizes[g], 'человек', 'человека', 'человек') }}</span>
+            {% if not drawn %}
+            <form method="post" action="{{ url_for('admin.dissolve_group') }}" data-confirm="Снять пометку «{{ g }}» у всех, кто её носит?">
+              <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+              <input type="hidden" name="group" value="{{ g }}">
+              <button aria-label="Снять пометку «{{ g }}»">×</button>
+            </form>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
       {% endif %}
       {% if not exclusions and not groups %}
       <p class="small muted">Пока без исключений — дарить может кто угодно кому угодно.</p>
